@@ -1,0 +1,143 @@
+#!/usr/bin/env python
+'''
+given a string input, read it out using 'espeak' so that each word is read out
+at a random speed, accent and pitch
+'''
+
+import os, argparse    # deal with command line arguments
+import wave                 # deal with wav files
+import subprocess           # deal with system calls
+from random import randint  # get random integers
+
+VOICE_CMD = 'espeak'
+AUDIO_CMD = 'aplay'
+VOLUME = 600
+
+TMP_FILE = 'voice.tmp'
+WAV_FILE = 'voice.wav'
+
+def rand_lang():
+    ''' 
+    return a random language from the list 
+    '''
+    languages = [
+                 'en/en',
+                 'mb/mb-en1',
+                 'en/en-us',
+                 'en/en-sc',
+                 'default',
+                 'en/en-rp',
+                 'en/en-n',
+                 'mb/mb-us2',
+                 'mb/mb-us1',
+                 'mb/mb-us3',
+                 'mb/mb-de4-en',
+                 'mb/mb-de5-en',
+                 'mb/mb-gr2-en',
+                 'mb/mb-ro1-en',
+                 'en/en-wm',
+                 'mb/mb-nl2-en',
+                 'mb/mb-fr1-en',
+                 'mb/mb-fr4-en',
+                 'mb/mb-hu1-en',
+                 'mb/mb-sw2-en',
+                 'en/en-wi',
+                 'mb/mb-af1-en',
+                 'mb/mb-pl1-en'
+                ]
+    n = randint(0,len(languages)-1)
+    return str(languages[n])
+
+def rand_pitch():
+    '''
+    return a random pitch to speak at
+    '''
+    min_pitch, max_pitch = 0, 99
+    return str(randint(min_pitch, max_pitch))
+
+def rand_speed():
+    '''
+    return a random speed to speak at
+    '''
+    min_speed, max_speed = 80, 450
+    return str(randint(min_speed, max_speed))
+
+def wav_word(word, lang='default', speed='175', pitch='50'):
+    ''' 
+    saves espeak saying "word" with a specific accent/language, pitch and speed
+    as a temporary wav file 
+    '''
+    # replace quotes around word
+    word = word.replace('"', "'")
+    word = '"' + word + '"'
+    # set up the system command
+    subprocess.call([
+                     VOICE_CMD,
+                     '-v', lang,            # accent / language 
+                     '-a', str(VOLUME),     # amplitude / volume
+                     '-s', speed,           # speed at which to talk
+                     '-p', pitch,           # pitch to talk at
+                     '-w', TMP_FILE,        # where to save the file
+                     '-z',                  # ignore pause at end of "sentence"
+                     word
+                     ])
+
+def wav_sentence(sentence):
+    '''
+    go through the sentence, saying each word at a random speed, pitch and accent/language
+    
+    This is done by saving each word first as a wav, then stitching all these
+    wavs into a single file. Otherwise calling the espeak program to say each 
+    word, one after another with seperate command line arguments (to account for
+    different speed/pitch parameters) gives pauses that are too long in between 
+    each command call
+    '''
+    # which wav file to stitch all the wavs together into - set it's wav parameters
+    stiched_wav = wave.open(WAV_FILE, 'w')
+    stiched_wav.setnchannels(1)
+    stiched_wav.setframerate(16000)
+    stiched_wav.setsampwidth(2)
+    
+    # split the sentence into words
+    for word in sentence.split(' '):
+        # save the current word spoken at a random speed, pitch and language/accent
+        wav_word(word, lang=rand_lang(), pitch=rand_pitch(), speed=rand_speed())
+        # open the .wav file and append it to stitched
+        current_wav = wave.open(TMP_FILE, 'r')
+        data = current_wav.readframes(current_wav.getnframes())
+        stiched_wav.writeframes(data)
+        current_wav.close()
+        
+    stiched_wav.close()
+    
+def delete_temp_files():
+    '''
+    delete the temporary wav files created
+    '''
+    os.system('rm %s %s'%(TMP_FILE, WAV_FILE))
+    
+def say_wav():
+    '''
+    call program to play the wav file
+    '''
+    os.system('%s %s' % (AUDIO_CMD, WAV_FILE))
+    
+def say_sentence(sentence):
+    '''
+    says the inputed sentence with random speed, voices, pitches on each word
+    deletes any temporary files created in the process
+    '''
+    wav_sentence(sentence)
+    say_wav()
+    delete_temp_files()
+
+if __name__ == '__main__':
+    
+    # deal with command line flags / switches
+    parser = argparse.ArgumentParser()
+    parser.add_argument("sentence", help="the sentence you want read out")
+    args = parser.parse_args()
+        
+    say_sentence(args.sentence)
+
+    
