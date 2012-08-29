@@ -1,0 +1,4 @@
+Author: Marko Milicevic
+Email: tenulate@gmail.com
+
+Uses 'espeak' to read out a sentence, with each word read at a random speed, pitch and accent(language)
